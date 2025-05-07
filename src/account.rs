@@ -5,8 +5,8 @@ use crate::jws::jws;
 use crate::jws::Jwk;
 use openssl::pkey::PKey;
 use openssl::pkey::Private;
-use serde::Deserialize;
-use serde_json::json;
+use serde::{Deserialize,Serialize};
+use serde_json::to_value;
 use std::sync::Arc;
 use tracing::field;
 use tracing::instrument;
@@ -72,15 +72,21 @@ pub struct Account {
 
 /// An builder that is used to create / retrieve an [`Account`] from the
 /// ACME server.
-#[derive(Debug)]
+#[derive(Debug,Serialize)]
 pub struct AccountBuilder {
+    #[serde(skip)]
     directory: Arc<Directory>,
 
+    #[serde(skip)]
     private_key: Option<PKey<Private>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     eab_config: Option<ExternalAccountBinding>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     contact: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     terms_of_service_agreed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     only_return_existing: Option<bool>,
 }
 
@@ -173,13 +179,7 @@ impl AccountBuilder {
             .directory
             .authenticated_request::<_, Account>(
                 &url,
-                json!({
-                  "contact": self.contact,
-                  "termsOfServiceAgreed": self.terms_of_service_agreed,
-                  "onlyReturnExisting": self.only_return_existing,
-                  // TODO: omit if None?
-                  "externalAccountBinding": external_account_binding,
-                }),
+                to_value(self).expect("invalid builder"),
                 private_key.clone(),
                 None,
             )
