@@ -27,7 +27,7 @@ pub enum AccountStatus {
     Revoked,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub(crate) struct ExternalAccountBinding {
     /// Key identifier, in string form.
     key_id: String,
