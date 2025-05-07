@@ -5,8 +5,8 @@ use crate::jws::jws;
 use crate::jws::Jwk;
 use openssl::pkey::PKey;
 use openssl::pkey::Private;
-use serde::ser::SerializeMap;
-use serde::{Deserialize,Serialize};
+use serde::ser::{self, SerializeMap};
+use serde::{Deserialize, Serialize};
 use serde_json::to_value;
 use std::sync::Arc;
 use tracing::field;
@@ -87,20 +87,28 @@ pub struct AccountBuilder {
 
 impl Serialize for AccountBuilder {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer {
+    where
+        S: serde::Serializer,
+    {
         let mut obj = serializer.serialize_map(None)?;
         if self.contact.is_some() {
             obj.serialize_entry("contact", &self.contact.clone())?
         }
         if self.terms_of_service_agreed.is_some() {
-            obj.serialize_entry("termsOfServiceAgreed", &self.terms_of_service_agreed.clone())?
+            obj.serialize_entry(
+                "termsOfServiceAgreed",
+                &self.terms_of_service_agreed.clone(),
+            )?
         }
         if self.only_return_existing.is_some() {
             obj.serialize_entry("onlyReturnExisting", &self.only_return_existing.clone())?
         }
         if let Some(eab) = self.eab_config.clone() {
-            let payload = serde_json::to_string(&Jwk::new(&self.private_key.clone().unwrap())).unwrap();
+            if self.private_key.is_none() {
+                return Err(ser::Error::custom("private key was not set or generated."));
+            }
+            let payload =
+                serde_json::to_string(&Jwk::new(&self.private_key.clone().unwrap())).unwrap();
             let binding = match jws(
                 &self.directory.new_account_url.clone(),
                 None,
@@ -108,15 +116,13 @@ impl Serialize for AccountBuilder {
                 &eab.private_key,
                 Some(eab.key_id.clone()),
             ) {
-                Ok(b)=>b,
-                Err(error)=>{
-                    return Err(serde::ser::Error::custom(error.to_string()))
-                },
+                Ok(b) => b,
+                Err(error) => return Err(ser::Error::custom(error.to_string())),
             };
             obj.serialize_entry("externalAccountBinding", &binding)?
         }
         obj.end()
-}
+    }
 }
 
 impl AccountBuilder {
