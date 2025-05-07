@@ -175,11 +175,13 @@ impl AccountBuilder {
             None
         };
 
+        let body = to_value(self).expect("invalid builder");
+
         let (res, headers) = self
             .directory
             .authenticated_request::<_, Account>(
                 &url,
-                to_value(self).expect("invalid builder"),
+                body,
                 private_key.clone(),
                 None,
             )
